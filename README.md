@@ -18,10 +18,8 @@ started with some standard tools without worrying about messing up your local ma
 # Requirements for host machine
 
 * Ruby
-* VirtualBox - [Download](https://www.virtualbox.org/wiki/Downloads)
-* Vagrant
-
-    gem install vagrant
+* VirtualBox [Download](https://www.virtualbox.org/wiki/Downloads)
+* Vagrant `gem install vagrant`
 
 # Installation
 
@@ -30,6 +28,8 @@ started with some standard tools without worrying about messing up your local ma
     vagrant box add debian http://dl.dropbox.com/u/937870/VMs/squeeze64.box
 
 # Usage
+
+to build the VM from the base image and ssh into it:
 
     vagrant up
     vagrant ssh
