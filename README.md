@@ -55,6 +55,10 @@ then to rebuild everything:
 
 Note: Starting the machine for the first time will take about 20-25 minutes since it builds ruby and node from source.
 
+# Hacking
+
+If you want to add your own stuff, you will want to take a look at [default.rb](https://github.com/zhm/geobox/blob/master/cookbooks/core/recipes/default.rb). It has most of the hackish code that installs and sets up the box. Improvements are welcome since I have no idea what I'm doing.
+
 # TODO
 
 * CartoDB
