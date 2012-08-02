@@ -25,6 +25,8 @@ started with some standard tools without worrying about messing up your local ma
 
     git clone https://github.com/zhm/geobox
     cd geobox
+    git submodule init
+    git submodule update
     vagrant box add debian http://dl.dropbox.com/u/937870/VMs/squeeze64.box
 
 # Usage
