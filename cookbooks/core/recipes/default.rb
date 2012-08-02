@@ -20,7 +20,7 @@ execute "apt-get update" do
   user "root"
 end
 
-%w(gcc libgdal-dev gdal-bin libmapnik-dev postgresql-9.1 postgresql-server-dev-9.1).each do |cmd|
+%w(gcc postgresql-9.1 postgresql-server-dev-9.1 libjson0-dev postgresql-plpython-9.1 redis-server python-setuptools libgdal-dev gdal-bin libmapnik-dev).each do |cmd|
   execute "apt-get install #{cmd}/testing -y" do
     user "root"
   end
@@ -43,12 +43,14 @@ execute "install PostGIS 2.x" do
     ln -sf /usr/share/postgresql-common/pg_wrapper /usr/local/bin/raster2pgsql &&
     curl -s https://raw.github.com/gist/c83798ee55a08b7a5de5/ed240ae342d8cef1cb956a563b3b9f0bc220ca34/pg_hba.conf -o /etc/postgresql/9.1/main/pg_hba.conf &&
     /etc/init.d/postgresql restart &&
-    echo "CREATE ROLE vagrant LOGIN;" | psql -U postgres &&
-    echo "CREATE DATABASE vagrant;" | psql -U postgres &&
-    echo "ALTER USER vagrant SUPERUSER;" | psql -U postgres &&
-    echo "CREATE DATABASE template_postgis;" | psql -U postgres &&
-    echo "CREATE EXTENSION postgis;" | psql -U postgres -d template_postgis &&
-    echo "CREATE EXTENSION postgis_topology;" | psql -U postgres -d template_postgis
+    echo "CREATE ROLE vagrant LOGIN;"               | psql -U postgres &&
+    echo "CREATE DATABASE vagrant;"                 | psql -U postgres &&
+    echo "ALTER USER vagrant SUPERUSER;"            | psql -U postgres &&
+    echo "CREATE DATABASE template_postgis;"        | psql -U postgres &&
+    echo "CREATE EXTENSION postgis;"                | psql -U postgres -d template_postgis &&
+    echo "CREATE EXTENSION postgis_topology;"       | psql -U postgres -d template_postgis &&
+    echo "GRANT ALL ON geometry_columns TO PUBLIC;" | psql -U postgres -d template_postgis &&
+    echo "GRANT ALL ON spatial_ref_sys TO PUBLIC;"  | psql -U postgres -d template_postgis
   EOS
   action :run
   user 'root'
@@ -149,7 +151,7 @@ execute "install n" do
   command [
     "cd #{install_prefix}/src/n",
     "make install",
-    "n stable"
+    "n 0.8.4"
   ].join(" && ")
 
   action :run
@@ -162,3 +164,79 @@ execute "install standard node modules" do
   action :run
   user 'root'
 end
+
+
+
+
+# CARTODB
+# libjson0-dev
+
+execute "install pip" do
+  command "easy_install pip"
+  action :run
+  user 'root'
+end
+
+execute "install python dependencies for CartoDB" do
+  command <<-EOS
+    pip install 'chardet==1.0.1' &&
+    pip install 'argparse==1.2.1' &&
+    pip install 'brewery==0.6' &&
+    pip install 'redis==2.4.9' &&
+    pip install 'hiredis==0.1.0' &&
+    pip install -e 'git+https://github.com/RealGeeks/python-varnish.git@0971d6024fbb2614350853a5e0f8736ba3fb1f0d#egg=python-varnish==0.1.2'
+  EOS
+  action :run
+  user 'root'
+end
+
+
+git "CartoDB-SQL-API" do
+  repository "git://github.com/Vizzuality/CartoDB-SQL-API.git"
+  reference 'master'
+  destination "#{install_prefix}/src/CartoDB-SQL-API"
+  action :checkout
+  user "root"
+end
+
+execute "setup CartoDB-SQL-API" do
+  command "cd #{install_prefix}/src/CartoDB-SQL-API && npm install"
+end
+
+
+
+git "Windshaft-cartodb" do
+  repository "git://github.com/Vizzuality/Windshaft-cartodb.git"
+  reference 'master'
+  destination "#{install_prefix}/src/Windshaft-cartodb"
+  action :checkout
+  user "root"
+end
+
+execute "setup Windshaft-cartodb" do
+  command "cd #{install_prefix}/src/Windshaft-cartodb && npm install"
+end
+
+
+git "CartoDB" do
+  repository "git://github.com/Vizzuality/cartodb.git"
+  reference 'master'
+  destination "#{install_prefix}/src/cartodb"
+  action :checkout
+  user "root"
+end
+
+execute "setup cartodb" do
+  command <<-EOS
+    cd #{install_prefix}/src/cartodb &&
+    bundle install --binstubs &&
+    mv config/app_config.yml.sample config/app_config.yml &&
+    mv config/database.yml.sample config/database.yml &&
+    echo "127.0.0.1 admin.localhost.lan" | tee -a /etc/hosts &&
+    echo "127.0.0.1 admin.testhost.lan" | tee -a /etc/hosts &&
+    echo "127.0.0.1 cartodb.localhost.lan" | tee -a /etc/hosts &&
+    sh script/create_dev_user cartodb
+  EOS
+end
+
+

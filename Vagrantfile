@@ -4,6 +4,9 @@ Vagrant::Config.run do |config|
   config.vm.forward_port 80,   8080
   config.vm.forward_port 22,   2222
   config.vm.forward_port 3000, 3030
+  config.vm.forward_port 3001, 3031
+  config.vm.forward_port 4000, 4000
+  config.vm.forward_port 5432, 5432
 
   config.vm.network :hostonly, "22.22.22.22"
 
