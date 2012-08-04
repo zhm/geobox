@@ -294,12 +294,6 @@ git "CartoDB" do
   user "root"
 end
 
-# execute "patch cartodb" do
-#   command <<-EOS
-#   EOS
-#   user 'root'
-# end
-
 execute "setup cartodb" do
   # strip out the ruby-debug gem from the Gemfile since it consistently causes problems and
   # doesn't seem to install properly in all ruby environments and OS's.
