@@ -1,56 +1,98 @@
-%w[wget curl ack python-software-properties autoconf bison flex libyaml-dev libtool].each do |pkg|
+%w[wget curl ack python-software-properties autoconf bison flex libyaml-dev libtool make vim].each do |pkg|
   package pkg do
     action :install
   end
 end
 
-# some packages still prompt even with -y, https://bugs.launchpad.net/ubuntu/+source/eglibc/+bug/935681
-ENV['DEBIAN_FRONTEND'] = 'noninteractive'
+install_prefix = "/usr/local"
+
+["add-apt-repository ppa:ubuntugis/ubuntugis-unstable -y", "apt-get update"].each do |cmd|
+  execute cmd do
+    user "root"
+  end
+end
+
+["sudo add-apt-repository ppa:mapnik/nightly-2.0 -y", "apt-get update"].each do |cmd|
+  execute cmd do
+    user "root"
+  end
+end
+
+# Geo packages
+%w[
+  libsqlite3-dev
+  libproj-dev
+  libgeos-dev
+  libspatialite-dev
+  libgeotiff-dev
+  libgdal-dev
+  gdal-bin
+  libmapnik-dev
+  mapnik-utils
+  python-dev
+  python-setuptools
+  python-pip
+  python-gdal
+  python-mapnik
+  postgresql-9.1
+  postgresql-server-dev-9.1
+  postgresql-plpython-9.1
+  libjson0-dev
+  redis-server
+  libxslt-dev
+  unzip
+  unp
+  osm2pgsql
+  osmosis
+  protobuf-compiler
+  libprotobuf-dev
+  libtokyocabinet-dev
+  python-psycopg2
+  imagemagick
+  libmagickcore-dev
+  libmagickwand-dev
+].each do |pkg|
+  package pkg do
+    action :install
+  end
+end
 
 install_prefix = "/usr/local"
 
-# add the testing repo so we can get gdal 1.9 and newer mapnik
-apt_repository "testing" do
-  uri "http://ftp.debian.org/debian"
-  distribution 'testing'
-  components ["main", "non-free"]
-end
 
 execute "apt-get update" do
   user "root"
 end
 
-%w(gcc postgresql-9.1 postgresql-server-dev-9.1 libjson0-dev postgresql-plpython-9.1 redis-server python-setuptools libgdal-dev gdal-bin libmapnik-dev).each do |cmd|
-  execute "apt-get install #{cmd}/testing -y" do
-    user "root"
-  end
-end
-
-
 execute "install PostGIS 2.x" do
   command <<-EOS
-    cd /usr/local/src &&
-    wget http://postgis.org/download/postgis-2.0.1.tar.gz &&
-    tar xfvz postgis-2.0.1.tar.gz &&
-    cd postgis-2.0.1 &&
-    ./configure &&
-    make &&
-    make install &&
-    ldconfig &&
-    make comments-install &&
-    ln -sf /usr/share/postgresql-common/pg_wrapper /usr/local/bin/shp2pgsql &&
-    ln -sf /usr/share/postgresql-common/pg_wrapper /usr/local/bin/pgsql2shp &&
-    ln -sf /usr/share/postgresql-common/pg_wrapper /usr/local/bin/raster2pgsql &&
-    curl -s https://raw.github.com/gist/c83798ee55a08b7a5de5/ed240ae342d8cef1cb956a563b3b9f0bc220ca34/pg_hba.conf -o /etc/postgresql/9.1/main/pg_hba.conf &&
-    /etc/init.d/postgresql restart &&
-    echo "CREATE ROLE vagrant LOGIN;"               | psql -U postgres &&
-    echo "CREATE DATABASE vagrant;"                 | psql -U postgres &&
-    echo "ALTER USER vagrant SUPERUSER;"            | psql -U postgres &&
-    echo "CREATE DATABASE template_postgis;"        | psql -U postgres &&
-    echo "CREATE EXTENSION postgis;"                | psql -U postgres -d template_postgis &&
-    echo "CREATE EXTENSION postgis_topology;"       | psql -U postgres -d template_postgis &&
-    echo "GRANT ALL ON geometry_columns TO PUBLIC;" | psql -U postgres -d template_postgis &&
-    echo "GRANT ALL ON spatial_ref_sys TO PUBLIC;"  | psql -U postgres -d template_postgis
+    if [ ! -d /usr/share/postgresql/9.1/contrib/postgis-2.0 ]
+    then
+      cd /usr/local/src &&
+      wget http://postgis.org/download/postgis-2.0.1.tar.gz &&
+      tar xfvz postgis-2.0.1.tar.gz &&
+      cd postgis-2.0.1 &&
+      ./configure &&
+      make &&
+      make install &&
+      ldconfig &&
+      make comments-install &&
+      ln -sf /usr/share/postgresql-common/pg_wrapper /usr/local/bin/shp2pgsql &&
+      ln -sf /usr/share/postgresql-common/pg_wrapper /usr/local/bin/pgsql2shp &&
+      ln -sf /usr/share/postgresql-common/pg_wrapper /usr/local/bin/raster2pgsql &&
+      curl -s https://raw.github.com/gist/c83798ee55a08b7a5de5/813a2ba7543697789d2b5af6fae2cabf547cef54/pg_hba.conf -o /etc/postgresql/9.1/main/pg_hba.conf &&
+      curl -s https://raw.github.com/gist/bdf5accb7b328f7f596a/0f3a969132150655c861e2ea22852fdd16eac02c/postgresql.conf -o /etc/postgresql/9.1/main/postgresql.conf &&
+      /etc/init.d/postgresql restart &&
+      echo "CREATE ROLE vagrant LOGIN;"                  | psql -U postgres &&
+      echo "CREATE DATABASE vagrant;"                    | psql -U postgres &&
+      echo "ALTER USER vagrant SUPERUSER;"               | psql -U postgres &&
+      echo "ALTER USER vagrant WITH PASSWORD 'vagrant';" | psql -U postgres &&
+      echo "CREATE DATABASE template_postgis;"           | psql -U postgres &&
+      echo "CREATE EXTENSION postgis;"                   | psql -U postgres -d template_postgis &&
+      echo "CREATE EXTENSION postgis_topology;"          | psql -U postgres -d template_postgis &&
+      echo "GRANT ALL ON geometry_columns TO PUBLIC;"    | psql -U postgres -d template_postgis &&
+      echo "GRANT ALL ON spatial_ref_sys TO PUBLIC;"     | psql -U postgres -d template_postgis
+    fi
   EOS
   action :run
   user 'root'
@@ -96,13 +138,19 @@ end
 ENV['RY_PREFIX'] = install_prefix
 
 execute "install ry" do
-  command "cd #{install_prefix}/src/ry && PREFIX=#{install_prefix} make install"
+  cwd "#{install_prefix}/src/ry"
+  command <<-EOS
+    [ -x #{install_prefix}/bin/ry ] || PREFIX=#{install_prefix} make install
+  EOS
   action :run
   user "root"
 end
 
 execute "install ruby 1.9.3" do
-  command "#{install_prefix}/bin/ry install https://github.com/ruby/ruby/tarball/v1_9_3_195 1.9.3 --enable-shared=yes"
+  command <<-EOS
+    [ -x #{install_prefix}/lib/ry/current/bin/ruby ] ||
+    #{install_prefix}/bin/ry install https://github.com/ruby/ruby/tarball/v1_9_3_195 1.9.3 --enable-shared=yes
+  EOS
   action :run
   user "root"
 end
@@ -114,7 +162,6 @@ execute "setup ruby" do
     #{install_prefix}/lib/ry/current/bin/gem update --system &&
     #{install_prefix}/lib/ry/current/bin/gem install bundler
   EOS
-
   action :run
   user "root"
 end
@@ -148,12 +195,10 @@ git "n" do
 end
 
 execute "install n" do
-  command [
-    "cd #{install_prefix}/src/n",
-    "make install",
-    "n 0.8.4"
-  ].join(" && ")
-
+  cwd "#{install_prefix}/src/n"
+  command <<-EOS
+    make install && n 0.8.4
+  EOS
   action :run
   user 'root'
 end
@@ -165,11 +210,7 @@ execute "install standard node modules" do
   user 'root'
 end
 
-
-
-
 # CARTODB
-# libjson0-dev
 
 execute "install pip" do
   command "easy_install pip"
@@ -203,8 +244,6 @@ execute "setup CartoDB-SQL-API" do
   command "cd #{install_prefix}/src/CartoDB-SQL-API && npm install"
 end
 
-
-
 git "Windshaft-cartodb" do
   repository "git://github.com/Vizzuality/Windshaft-cartodb.git"
   reference 'master'
@@ -214,7 +253,36 @@ git "Windshaft-cartodb" do
 end
 
 execute "setup Windshaft-cartodb" do
-  command "cd #{install_prefix}/src/Windshaft-cartodb && npm install"
+
+  # This requires some custom hacks to put the native modules in place because of how node-gyp builds native modules
+  # compared to the older wscript. Both node-mapnik and node-eio have since been updated for compatibility with the
+  # latest version of node-gyp, but Windshaft-cartodb hasn't yet been updated to use the updated modules, possibly
+  # because of unrelated breaking changes to the modules.
+  #
+  # See:
+  # eio - https://github.com/developmentseed/node-eio/blob/52e57341976ceb2b40fe147b7e440b16bfca60b0/package.json#L14
+
+  cwd "#{install_prefix}/src/Windshaft-cartodb"
+  command <<-EOS
+    [ -f /usr/local/src/Windshaft-cartodb/node_modules/windshaft/node_modules/tilelive-mapnik-cartodb/node_modules/eio/build/default/eio.node ] ||
+    npm install &&
+    cp /usr/local/src/Windshaft-cartodb/node_modules/windshaft/node_modules/tilelive-mapnik-cartodb/node_modules/mapnik/build/Release/_mapnik.node /usr/local/src/Windshaft-cartodb/node_modules/windshaft/node_modules/tilelive-mapnik-cartodb/node_modules/mapnik/lib/ &&
+    mkdir -p /usr/local/src/Windshaft-cartodb/node_modules/windshaft/node_modules/tilelive-mapnik-cartodb/node_modules/eio/build/default/ &&
+    cp /usr/local/src/Windshaft-cartodb/node_modules/windshaft/node_modules/tilelive-mapnik-cartodb/node_modules/eio/build/Release/eio.node /usr/local/src/Windshaft-cartodb/node_modules/windshaft/node_modules/tilelive-mapnik-cartodb/node_modules/eio/build/default/
+  EOS
+  user 'root'
+end
+
+execute "start Windshaft-cartodb" do
+  cwd "#{install_prefix}/src/Windshaft-cartodb"
+  command <<-EOS
+    mkdir -p log pids
+    chown -R vagrant:vagrant log pids
+    [ -f pids/windshaft.pid ] && kill `cat pids/windshaft.pid`
+    nohup node app.js development >> #{install_prefix}/src/Windshaft-cartodb/log/development.log 2>&1 &
+    echo $! > #{install_prefix}/src/Windshaft-cartodb/pids/windshaft.pid
+  EOS
+  user 'root'
 end
 
 
@@ -226,17 +294,59 @@ git "CartoDB" do
   user "root"
 end
 
+# execute "patch cartodb" do
+#   command <<-EOS
+#   EOS
+#   user 'root'
+# end
+
 execute "setup cartodb" do
+  # strip out the ruby-debug gem from the Gemfile since it consistently causes problems and
+  # doesn't seem to install properly in all ruby environments and OS's.
+  # also, overwrite `script/create_dev_user` with a custom one that doesn't prompt
+  cwd "#{install_prefix}/src/cartodb"
   command <<-EOS
-    cd #{install_prefix}/src/cartodb &&
-    bundle install --binstubs &&
-    mv config/app_config.yml.sample config/app_config.yml &&
-    mv config/database.yml.sample config/database.yml &&
-    echo "127.0.0.1 admin.localhost.lan" | tee -a /etc/hosts &&
-    echo "127.0.0.1 admin.testhost.lan" | tee -a /etc/hosts &&
-    echo "127.0.0.1 cartodb.localhost.lan" | tee -a /etc/hosts &&
-    sh script/create_dev_user cartodb
+    if [ ! -f config/database.yml ]
+    then
+      chown -R vagrant:vagrant #{install_prefix}/src/cartodb
+
+      sed 's/.*gem "ruby-debug.*//g' Gemfile > Gemfile.tmp && mv Gemfile.tmp Gemfile
+      sed 's/^echo -n "Enter.*//g' script/create_dev_user > script/create_dev_user.tmp && mv script/create_dev_user.tmp script/create_dev_user
+
+      export RY_PREFIX=#{install_prefix} &&
+      export PATH=$RY_PREFIX/lib/ry/current/bin:$PATH
+
+      #{install_prefix}/lib/ry/current/bin/bundle install --binstubs &&
+      curl -s https://raw.github.com/gist/21c52f1eb9862a1dfffa/58cc1436d23153be0ad2502c8ed5459847c85685/app_config.yml -o config/app_config.yml &&
+      curl -s https://raw.github.com/gist/4c503e531fd54b3cbcec/0a435609a58e3f8401cfee5990e173b170e2cc82/database.yml -o config/database.yml &&
+      echo "127.0.0.1 admin.localhost.lan"   | tee -a /etc/hosts &&
+      echo "127.0.0.1 admin.testhost.lan"    | tee -a /etc/hosts &&
+      echo "127.0.0.1 cartodb.localhost.lan" | tee -a /etc/hosts &&
+      PASSWORD=cartodb ADMIN_PASSWORD=cartodb EMAIL=admin@cartodb sh script/create_dev_user cartodb
+    fi
   EOS
+  user "root"
 end
 
+execute "start cartodb" do
+  cwd "#{install_prefix}/src/cartodb"
+  command <<-EOS
+    mkdir -p public log tmp pids
+    chown -R vagrant:vagrant public log tmp pids
+    [ -f pids/cartodb.pid ] && kill `cat pids/cartodb.pid`
+    export RY_PREFIX=#{install_prefix}
+    export PATH=$RY_PREFIX/lib/ry/current/bin:$PATH
+    nohup bundle exec rails server >> #{install_prefix}/src/cartodb/log/development.log 2>&1 &
+    echo $! > #{install_prefix}/src/cartodb/pids/cartodb.pid
+  EOS
+  user 'root'
+end
 
+execute "install imposm" do
+  command <<-EOS
+    pip install imposm.parser &&
+    pip install Shapely &&
+    pip install imposm
+  EOS
+  user 'root'
+end
