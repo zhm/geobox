@@ -66,7 +66,7 @@ end
 
 execute "install PostGIS 2.x" do
   command <<-EOS
-    if [ ! -d /usr/share/postgresql/9.1/contrib/postgis-2.0 ]
+    if [ ! -d /usr/local/src/postgis-2.0.1 ]
     then
       cd /usr/local/src &&
       wget http://postgis.org/download/postgis-2.0.1.tar.gz &&
