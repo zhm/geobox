@@ -1,3 +1,5 @@
+require 'json'
+
 Vagrant::Config.run do |config|
   config.vm.box = "precise"
 
@@ -13,14 +15,12 @@ Vagrant::Config.run do |config|
 
   config.vm.network :hostonly, "22.22.22.22"
 
+  json = JSON.parse(File.open('solo.json').read)
+
   config.vm.provision :chef_solo do |chef|
-    chef.add_recipe "git"
-    chef.add_recipe "zsh"
-    chef.add_recipe "apt"
-    chef.add_recipe "core"
-    chef.add_recipe "ohai"
-    chef.add_recipe "nginx"
-    chef.add_recipe "mongodb"
+    json['run_list'].each do |recipe|
+      chef.add_recipe recipe
+    end
     chef.json = { :user => 'vagrant' }
   end
 end

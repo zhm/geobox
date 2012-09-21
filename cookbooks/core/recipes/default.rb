@@ -197,7 +197,7 @@ end
 execute "install n" do
   cwd "#{install_prefix}/src/n"
   command <<-EOS
-    make install && n 0.8.4
+    make install && n 0.8.9
   EOS
   action :run
   user 'root'
@@ -253,22 +253,9 @@ git "Windshaft-cartodb" do
 end
 
 execute "setup Windshaft-cartodb" do
-
-  # This requires some custom hacks to put the native modules in place because of how node-gyp builds native modules
-  # compared to the older wscript. Both node-mapnik and node-eio have since been updated for compatibility with the
-  # latest version of node-gyp, but Windshaft-cartodb hasn't yet been updated to use the updated modules, possibly
-  # because of unrelated breaking changes to the modules.
-  #
-  # See:
-  # eio - https://github.com/developmentseed/node-eio/blob/52e57341976ceb2b40fe147b7e440b16bfca60b0/package.json#L14
-
   cwd "#{install_prefix}/src/Windshaft-cartodb"
   command <<-EOS
-    [ -f /usr/local/src/Windshaft-cartodb/node_modules/windshaft/node_modules/tilelive-mapnik-cartodb/node_modules/eio/build/default/eio.node ] ||
-    npm install &&
-    cp /usr/local/src/Windshaft-cartodb/node_modules/windshaft/node_modules/tilelive-mapnik-cartodb/node_modules/mapnik/build/Release/_mapnik.node /usr/local/src/Windshaft-cartodb/node_modules/windshaft/node_modules/tilelive-mapnik-cartodb/node_modules/mapnik/lib/ &&
-    mkdir -p /usr/local/src/Windshaft-cartodb/node_modules/windshaft/node_modules/tilelive-mapnik-cartodb/node_modules/eio/build/default/ &&
-    cp /usr/local/src/Windshaft-cartodb/node_modules/windshaft/node_modules/tilelive-mapnik-cartodb/node_modules/eio/build/Release/eio.node /usr/local/src/Windshaft-cartodb/node_modules/windshaft/node_modules/tilelive-mapnik-cartodb/node_modules/eio/build/default/
+    sudo npm install
   EOS
   user 'root'
 end

@@ -1,0 +1,12 @@
+{
+  "run_list": [
+    "recipe[git]",
+    "recipe[zsh]",
+    "recipe[apt]",
+    "recipe[core]",
+    "recipe[ohai]",
+    "recipe[nginx]",
+    "recipe[mongodb]"
+  ],
+  "user": "ubuntu"
+}
