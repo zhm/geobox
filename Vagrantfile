@@ -5,7 +5,7 @@ Vagrant::Config.run do |config|
 
   config.vm.customize ["modifyvm", :id, "--memory", 1024]
 
-  config.vm.forward_port 22,   2222
+  config.vm.network :forwarded_port, id: 'ssh', guest: 22, host: 2222
   config.vm.forward_port 80,   80
   config.vm.forward_port 3000, 3030
   config.vm.forward_port 3001, 3001
